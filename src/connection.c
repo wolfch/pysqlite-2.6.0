@@ -61,7 +61,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
 {
     static char *kwlist[] = {"database", "timeout", "detect_types", "isolation_level", "check_same_thread", "factory", "cached_statements", NULL, NULL};
 
-    PyObject* database;
+    PyObject* database = 0;
     int detect_types = 0;
     PyObject* isolation_level = NULL;
     PyObject* factory = NULL;
@@ -72,11 +72,18 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     PyObject* class_attr = NULL;
     PyObject* class_attr_str = NULL;
     int is_apsw_connection = 0;
-    PyObject* database_utf8;
+    PyObject* database_utf8 = 0;
+    sqlite3 *open_db=0;
+    PyObject* main_module;
+    PyObject* global_dict;
+    PyObject* sqlite3_conn;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
-                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
-    {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, 
+        "|OdiOiOi:Connection(filename|apsw connection,timeout=n,"
+        "detect_types=1,isolation_level=str,check_same_thread=1,"
+        "factory=obj,cached_statements=1", 
+        kwlist, &database, &timeout, &detect_types, 
+        &isolation_level, &check_same_thread, &factory, &cached_statements)) {
         return -1;
     }
 
@@ -94,7 +101,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
     Py_INCREF(&PyUnicode_Type);
     self->text_factory = (PyObject*)&PyUnicode_Type;
 
-    if (PyString_Check(database) || PyUnicode_Check(database)) {
+    if (database && (PyString_Check(database) || PyUnicode_Check(database))) {
         if (PyString_Check(database)) {
             database_utf8 = database;
             Py_INCREF(database_utf8);
@@ -115,7 +122,7 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
             _pysqlite_seterror(self->db, NULL);
             return -1;
         }
-    } else {
+    } else if (database != (PyObject*)0) {
         /* Create a pysqlite connection from a APSW connection */
         class_attr = PyObject_GetAttrString(database, "__class__");
         if (class_attr) {
@@ -141,6 +148,23 @@ int pysqlite_connection_init(pysqlite_Connection* self, PyObject* args, PyObject
             PyErr_SetString(PyExc_ValueError, "database parameter must be string or APSW Connection object");
             return -1;
         }
+    } else {
+        main_module = PyImport_AddModule("__main__");
+        global_dict = PyModule_GetDict(main_module);
+        if ((sqlite3_conn = PyDict_GetItemString(global_dict, 
+                            "sqlite3_db_handle")) == (PyObject*)0) {
+            PyErr_SetString(pysqlite_ProgrammingError, 
+                "no sqlite db file name or APSW connection specified and "
+                "no global property \"sqlite3_db_handle\" set.");
+            return -1;
+        }
+        open_db = (sqlite3*)PyInt_AsLong(sqlite3_conn);
+        //printf("*** sqlite3_db_handle: 0x%08.08x\n", open_db);
+        self->db = open_db;
+        self->is_open_connection = 1;
+
+        //Py_XDECREF(global_dict);
+        //Py_XDECREF(main_module);
     }
 
     if (!isolation_level) {
@@ -269,7 +293,7 @@ void pysqlite_connection_dealloc(pysqlite_Connection* self)
     Py_XDECREF(self->statement_cache);
 
     /* Clean up if user has not called .close() explicitly. */
-    if (self->db) {
+    if (self->db && !self->is_open_connection) {
         Py_BEGIN_ALLOW_THREADS
         sqlite3_close(self->db);
         Py_END_ALLOW_THREADS
@@ -369,7 +393,7 @@ PyObject* pysqlite_connection_close(pysqlite_Connection* self, PyObject* args)
             Py_XDECREF(self->apsw_connection);
             self->apsw_connection = NULL;
             self->db = NULL;
-        } else {
+        } else if (!self->is_open_connection) {
             Py_BEGIN_ALLOW_THREADS
             rc = sqlite3_close(self->db);
             Py_END_ALLOW_THREADS

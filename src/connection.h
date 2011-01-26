@@ -115,6 +115,7 @@ typedef struct
     PyObject* InternalError;
     PyObject* ProgrammingError;
     PyObject* NotSupportedError;
+    int       is_open_connection;
 } pysqlite_Connection;
 
 extern PyTypeObject pysqlite_ConnectionType;

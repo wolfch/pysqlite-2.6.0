@@ -8,6 +8,14 @@ The master "git" branch is just an unmodified open of pysqlite-2.6.0; the
 with --enable-stored-procedures and the sqlite-3.7.3/ext/pyproc 
 loadable extension to support Python stored procedures.
 
+This implementation for Python stored procs is accomplished by  
+creating a Python interpreter instance; then taking the current 
+connection, (of type sqlite3*) and sticking this pointer value 
+into a Python global variable named “sqlite3_db_handle”, so that 
+the modified pysqlite2 module can access it when it instantiates 
+a “dbapi2.connection” with zero arguments. (Normally, at least 
+one argument is required) 
+
 Building/Install:
 
 python setup.py install

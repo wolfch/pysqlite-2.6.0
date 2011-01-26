@@ -61,9 +61,12 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
 
     PyObject* result;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|diOiOi", kwlist,
-                                     &database, &timeout, &detect_types, &isolation_level, &check_same_thread, &factory, &cached_statements))
-    {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs,
+        "|OdiOiOi:Connection(filename|apsw connection,timeout=n,"
+        "detect_types=1,isolation_level=str,check_same_thread=1,"
+        "factory=obj,cached_statements=1",
+        kwlist, &database, &timeout, &detect_types,
+        &isolation_level, &check_same_thread, &factory, &cached_statements)) {
         return NULL; 
     }
 
@@ -77,7 +80,7 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
 }
 
 PyDoc_STRVAR(module_connect_doc,
-"connect(database[, timeout, isolation_level, detect_types, factory])\n\
+"connect([database|apsw connection, timeout, isolation_level, detect_types, factory])\n\
 \n\
 Opens a connection to the SQLite database file *database*. You can use\n\
 \":memory:\" to open a database connection to a database that resides in\n\

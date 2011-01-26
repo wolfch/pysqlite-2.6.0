@@ -1,0 +1,13 @@
+Experimental Stored Procedure Implementation in SQLite 
+(based on 3.7.3)
+
+Chris Wolf, cw10025 AT gmail.com, 1 January 2011
+
+The master "git" branch is just an unmodified open of pysqlite-2.6.0; the 
+"sproc-1" branch has the modifications required for sqlite-3.7.3 built
+with --enable-stored-procedures and the sqlite-3.7.3/ext/pyproc 
+loadable extension to support Python stored procedures.
+
+Building/Install:
+
+python setup.py install
